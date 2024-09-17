@@ -46,6 +46,7 @@ evalIntBinOp' f env e1 e2 =
 eval :: Env -> Exp -> Either Error Val
 eval _env (CstInt x) = Right $ ValInt x
 eval _env (CstBool b) = Right $ ValBool b
+eval env (Lambda name body) = Right $ ValFun env name body
 eval env (Var v) = case envLookup v env of
   Just x -> Right x
   Nothing -> Left $ "Unknown variable: " ++ v
@@ -79,26 +80,14 @@ eval env (Let var e1 e2) =
   case eval env e1 of
     Left err -> Left err
     Right v -> eval (envExtend var v env) e2
--- Assignment 
-eval env (Lambda param body) = Right $ ValFun env param body
-eval env (Apply funExpr argExpr) =
-  case eval env funExpr of
-    Left err -> Left err
-    Right (ValFun closureEnv param body) ->
-      case eval env argExpr of
-        Left err -> Left err
-        Right argVal -> eval (envExtend param argVal closureEnv) body
-    _ -> Left "Attempt to apply a non-function value."
-eval env (TryCatch e1 e2) = 
-  case eval env e1 of 
-    Left err -> 
-      case eval env e2 of 
-        Left err -> Left err 
-        Right val' -> Right val'
-    Right val -> Right val
-
--- Pretty Printer 
-printExp :: Exp -> String 
-printExp (CstInt x) = show x
-printExp (CstBool x) = show x
-printExp (Var x) = x
+eval env (Apply fun e1) =
+  do
+    lam <- eval env fun
+    arg <- eval env e1
+    case lam of
+      ValFun env' name body -> eval (envExtend name arg env') body
+      _ -> Left "Non-function applied"
+eval env (TryCatch body exception) =
+  case eval env body of
+    Left _ -> eval env exception
+    Right x -> Right x
