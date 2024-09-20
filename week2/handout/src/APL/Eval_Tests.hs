@@ -113,5 +113,25 @@ tests =
       testCase "Print with division by zero" $
         eval' (Print "Division" (Div (CstInt 10) (CstInt 0)))
           @?= ([], Left "Division by zero")
+       testCase "KvPut KvGet 1" $
+        eval' (Let "x" (KvPut (CstInt 0) (CstBool True)) (KvGet (CstInt 0)))
+          @?= ([], Right (ValBool True)),
+      --
+      testCase "KvPut KvGet 2" $
+        eval' (Let "x" (KvPut (CstInt 0) (CstBool True)) (KvGet (CstInt 1)))
+          @?= ([], Left "Invalid key: ValInt 1"),
+      --
+      testCase "KvPut KvGet 3" $
+        eval'
+          ( Let
+              "x"
+              (KvPut (CstInt 0) (CstBool True))
+              ( Let
+                  "y"
+                  (KvPut (CstInt 0) (CstBool False))
+                  (KvGet (CstInt 0))
+              )
+          )
+          @?= ([], Right (ValBool False))
     ]
     ]
