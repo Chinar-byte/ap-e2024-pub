@@ -9,11 +9,12 @@ module APL.Monad
     getState,
     putState,
     modifyState,
+    evalPrint,
+    catch,
+    failure,
     evalKvGet,
     evalKvPut,
-    evalPrint,
-    failure,
-    catch,
+    transaction,
     EvalM,
     Val (..),
     EvalOp (..),
@@ -56,7 +57,7 @@ data Free e a
   | Free (e (Free e a))
 
 instance (Functor e) => Functor (Free e) where
-  fmap f (Pure x) = Pure (f x)
+  fmap f (Pure x) = Pure $ f x
   fmap f (Free g) = Free $ fmap (fmap f) g
 
 instance (Functor e) => Applicative (Free e) where
@@ -77,16 +78,16 @@ data EvalOp a
   | ErrorOp Error
 
 instance Functor EvalOp where
-  fmap f (ReadOp k) = ReadOp (f . k)
-  fmap f (StateGetOp k) = StateGetOp (f . k)
-  fmap f (StatePutOp s k) = StatePutOp s (f k)
-  fmap f (PrintOp s a) = PrintOp s (f a) 
-  fmap f (ErrorOp err) = ErrorOp err
+  fmap f (ReadOp k) = ReadOp $ f . k
+  fmap f (StateGetOp k) = StateGetOp $ f . k
+  fmap f (StatePutOp s m) = StatePutOp s $ f m
+  fmap f (PrintOp p m) = PrintOp p $ f m
+  fmap _ (ErrorOp e) = ErrorOp e
 
 type EvalM a = Free EvalOp a
 
 askEnv :: EvalM Env
-askEnv = Free $ ReadOp $ \env -> Pure env
+askEnv = Free $ ReadOp $ \env -> pure env
 
 modifyEffects :: (Functor e, Functor h) => (e (Free e a) -> h (Free e a)) -> Free e a -> Free h a
 modifyEffects _ (Pure x) = Pure x
@@ -99,27 +100,31 @@ localEnv f = modifyEffects g
     g op = op
 
 getState :: EvalM State
-getState = Free $ StateGetOp $ \k -> Pure k
+getState = Free $ StateGetOp $ \s -> pure s
 
 putState :: State -> EvalM ()
-putState s = Free $ StatePutOp s (Pure ())
+putState s = Free $ StatePutOp s $ pure ()
 
 modifyState :: (State -> State) -> EvalM ()
 modifyState f = do
   s <- getState
-  putState (f s)
+  putState $ f s
 
 evalPrint :: String -> EvalM ()
-evalPrint = error "TODO"
+evalPrint p = Free $ PrintOp p $ pure ()
 
 failure :: String -> EvalM a
-failure str = Free $ ErrorOp str
+failure = Free . ErrorOp
 
 catch :: EvalM a -> EvalM a -> EvalM a
-catch = error "To be completed in assignment 4."
+catch (Free (ErrorOp _)) e2 = e2
+catch m _ = m
 
 evalKvGet :: Val -> EvalM Val
-evalKvGet = error "To be completed in assignment 4."
+evalKvGet = error "TODO"
 
 evalKvPut :: Val -> Val -> EvalM ()
-evalKvPut = error "To be completed in assignment 4."
+evalKvPut = error "TODO"
+
+transaction :: EvalM () -> EvalM ()
+transaction = error "TODO"
