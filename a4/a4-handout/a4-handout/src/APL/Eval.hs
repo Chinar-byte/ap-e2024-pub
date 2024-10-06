@@ -20,6 +20,11 @@ evalIntBinOp' f e1 e2 =
   where
     f' x y = pure $ f x y
 
+showVal :: Val -> String
+showVal (ValInt x) = show x
+showVal (ValBool x) = show x
+showVal (ValFun {}) = "#<fun>"
+
 -- Replace with your 'eval' from your solution to assignment 2.
 eval :: Exp -> EvalM Val
 eval (CstInt x) = pure $ ValInt x
@@ -71,3 +76,13 @@ eval (Apply e1 e2) = do
       failure "Cannot apply non-function"
 eval (TryCatch e1 e2) =
   eval e1 `catch` eval e2
+eval (Print vname e) = do
+  val <- eval e
+  evalPrint (vname ++ ": " ++ showVal val)
+  pure val
+eval (KvPut k v) = do
+  val <- eval v
+  key <- eval k
+  evalKvPut key val
+  pure val
+eval (KvGet k) = evalKvGet =<< eval k

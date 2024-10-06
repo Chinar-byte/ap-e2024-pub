@@ -14,3 +14,18 @@ runEval = runEval' envEmpty stateInitial
       let (ps, res) = runEval' r s m
        in (p : ps, res)
     runEval' _ _ (Free (ErrorOp e)) = ([], Left e)
+    runEval' r s (Free (TryCatchOp m n)) = runEval' r s $ catch m n
+    runEval' r s (Free (KvGetOp key k)) = case lookup key s of
+      Just val -> runEval' r s $ k val
+      Nothing -> ([], Left $ "Invalid key: " ++ show key)
+    runEval' r s (Free (KvPutOp key val m)) = runEval' r (insert s) m
+      where
+        insert [] = [(key, val)]
+        insert ((k, _) : xs) | k == key = (key, val) : xs
+        insert (x : xs) = x : insert xs
+    runEval' r s (Free (TransactionOp m n)) =
+      case runEval' r s m of
+        (ps, Left _) ->
+          let (ps', res) = runEval' r s n
+           in (ps ++ ps', res)
+        _ -> runEval' r s (m *> n)
